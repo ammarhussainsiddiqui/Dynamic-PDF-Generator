@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 
 interface Template {
   _id: string;
@@ -52,6 +53,28 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error("Error fetching stats", error);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string, templateName: string) => {
+    if (!confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/templates/${templateId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        // Optimistically remove from UI
+        setTemplates((prev) => prev.filter((t) => t._id !== templateId));
+      } else {
+        alert("Failed to delete template");
+      }
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      alert("An error occurred while deleting the template.");
     }
   };
 
@@ -132,10 +155,18 @@ export default function Dashboard() {
                         Created: {new Date(template.createdAt).toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="mt-8">
+                    <div className="mt-8 flex items-center justify-between">
                       <Button variant="secondary" size="sm" onClick={() => router.push(`/templates/${template._id}/edit`)}>
                         Edit Template
                       </Button>
+                      <button 
+                        onClick={() => handleDeleteTemplate(template._id, template.name)}
+                        className="p-2 text-foreground/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Template"
+                        aria-label="Delete Template"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
                     </div>
                   </Card>
                 </motion.div>
