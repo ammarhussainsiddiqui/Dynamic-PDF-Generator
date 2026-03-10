@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function NewTemplate() {
   const [name, setName] = useState("");
@@ -22,13 +23,14 @@ export default function NewTemplate() {
 
       if (res.ok) {
         const data = await res.json();
+        toast.success("Template created successfully");
         router.push(`/templates/${data._id}/edit`);
       } else {
-        alert("Failed to create template");
+        toast.error("Failed to create template");
       }
     } catch (err) {
       console.error(err);
-      alert("Error occurred");
+      toast.error("Error occurred while creating template");
     } finally {
       setLoading(false);
     }

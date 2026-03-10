@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { toast } from 'sonner';
 
 interface Template {
   _id: string;
@@ -21,8 +23,11 @@ export default function Dashboard() {
   
   const [templates, setTemplates] = useState<Template[]>([]);
   const [stats, setStats] = useState({ plan: 'Free', apiCalls: 0, totalGenerated: 0 });
-  
   const [loading, setLoading] = useState(true);
+  
+  // Modal State
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -56,25 +61,27 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteTemplate = async (templateId: string, templateName: string) => {
-    if (!confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone.`)) {
-      return;
-    }
+  const confirmDelete = async () => {
+    if (!templateToDelete) return;
+    setIsDeleting(true);
 
     try {
-      const res = await fetch(`/api/templates/${templateId}`, {
+      const res = await fetch(`/api/templates/${templateToDelete.id}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
-        // Optimistically remove from UI
-        setTemplates((prev) => prev.filter((t) => t._id !== templateId));
+        setTemplates((prev) => prev.filter((t) => t._id !== templateToDelete.id));
+        toast.success('Template deleted successfully');
       } else {
-        alert("Failed to delete template");
+        toast.error('Failed to delete template');
       }
     } catch (error) {
       console.error("Error deleting template:", error);
-      alert("An error occurred while deleting the template.");
+      toast.error('An error occurred while deleting the template.');
+    } finally {
+      setIsDeleting(false);
+      setTemplateToDelete(null);
     }
   };
 
@@ -160,7 +167,7 @@ export default function Dashboard() {
                         Edit Template
                       </Button>
                       <button 
-                        onClick={() => handleDeleteTemplate(template._id, template.name)}
+                        onClick={() => setTemplateToDelete({ id: template._id, name: template.name })}
                         className="p-2 text-foreground/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete Template"
                         aria-label="Delete Template"
@@ -195,6 +202,18 @@ export default function Dashboard() {
           </p>
         </div>
       </section>
+
+      <ConfirmModal
+        isOpen={!!templateToDelete}
+        onClose={() => setTemplateToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Delete Template?"
+        description={`Are you absolutely sure you want to delete "${templateToDelete?.name}"? Any ongoing PDF generations via API will fail. This action cannot be undone.`}
+        confirmText="Delete permanently"
+        cancelText="Cancel"
+        isDestructive={true}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ const buttonVariants = cva(
         secondary:
           'border border-accent/30 bg-transparent text-foreground hover:border-accent/50 hover:bg-accent/5',
         ghost: 'bg-transparent text-foreground hover:bg-muted',
+        destructive: 'bg-red-500 text-white hover:bg-red-600 shadow-md',
       },
       size: {
         sm: 'h-9 px-4 text-sm',

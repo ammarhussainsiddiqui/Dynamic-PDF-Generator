@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Poppins, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import Providers from '@/components/Providers';
+import { Toaster } from 'sonner';
 
 const poppins = Poppins({ 
   weight: ['400', '500', '600', '700'], 
@@ -38,6 +39,7 @@ export default function RootLayout({
             </main>
             <Footer />
           </div>
+          <Toaster position="bottom-right" theme="light" />
         </Providers>
       </body>
     </html>

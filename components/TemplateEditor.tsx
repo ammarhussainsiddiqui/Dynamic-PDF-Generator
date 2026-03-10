@@ -9,6 +9,7 @@ import ApiIntegrationModal from './ApiIntegrationModal';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import { toast } from 'sonner';
 
 export default function TemplateEditor({ initialTemplate }: { initialTemplate: any }) {
   const [html, setHtml] = useState(initialTemplate.htmlContent || '');
@@ -56,8 +57,9 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
           sampleJson: jsonStr,
         }),
       });
+      toast.success('Template saved successfully!');
     } catch (e) {
-      alert('Failed to save template');
+      toast.error('Failed to save template');
     } finally {
       setSaving(false);
     }
@@ -79,11 +81,12 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
+        toast.success("PDF generated successfully");
       } else {
-        alert('Failed to generate PDF');
+        toast.error('Failed to generate PDF');
       }
     } catch (e) {
-      alert('Error generating PDF');
+      toast.error('Error generating PDF');
     } finally {
       setGenerating(false);
     }
