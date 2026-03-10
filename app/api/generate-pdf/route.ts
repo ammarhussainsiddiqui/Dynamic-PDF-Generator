@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
 import Handlebars from 'handlebars';
 import { connectToDatabase } from '@/lib/db';
 import Template from '@/lib/models/Template';
@@ -41,10 +41,24 @@ export async function POST(req: Request) {
       </html>
     `;
 
-    // 3. Launch Puppeteer
+    // 3. Launch Puppeteer (Serverless optimized)
+    let executablePath;
+    let launchArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
+    
+    if (process.env.NODE_ENV === 'production') {
+      const chromium = require('@sparticuz/chromium');
+      executablePath = await chromium.executablePath();
+      launchArgs = chromium.args;
+    } else {
+      // Local development fallback (macOS specific for user's environment)
+      executablePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    }
+
     const browser = await puppeteer.launch({
+      args: launchArgs,
+      defaultViewport: { width: 1920, height: 1080 },
+      executablePath,
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     try {
