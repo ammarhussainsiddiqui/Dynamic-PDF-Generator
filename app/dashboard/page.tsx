@@ -17,14 +17,17 @@ interface Template {
 export default function Dashboard() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [stats, setStats] = useState({ plan: 'Free', apiCalls: 0, totalGenerated: 0 });
+  
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/");
     } else if (status === "authenticated") {
-      fetchTemplates();
+      Promise.all([fetchTemplates(), fetchStats()]).finally(() => setLoading(false));
     }
   }, [status, router]);
 
@@ -37,8 +40,18 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error("Error fetching templates", error);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch("/api/stats");
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error("Error fetching stats", error);
     }
   };
 
@@ -83,7 +96,13 @@ export default function Dashboard() {
                     {stat}
                   </p>
                   <p className="font-heading text-3xl font-semibold">
-                    {i === 0 ? '1,248' : i === 1 ? templates.length.toString() : i === 2 ? '8.4k' : 'Free'}
+                    {i === 0 
+                      ? stats.totalGenerated.toLocaleString() 
+                      : i === 1 
+                        ? templates.length.toString() 
+                        : i === 2 
+                          ? stats.apiCalls.toLocaleString() 
+                          : stats.plan}
                   </p>
                 </div>
               )

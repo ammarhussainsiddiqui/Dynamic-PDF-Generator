@@ -1,12 +1,11 @@
 import { connectToDatabase } from '@/lib/db';
 import Template from '@/lib/models/Template';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const session: any = await getServerSession(authOptions as any);
+    const session: any = await auth();
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -31,7 +30,7 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
-    const session: any = await getServerSession(authOptions as any);
+    const session: any = await auth();
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -1,12 +1,11 @@
 import { connectToDatabase } from "@/lib/db";
 import Template from "@/lib/models/Template";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import TemplateEditor from "@/components/TemplateEditor";
 
 export default async function EditTemplatePage({ params }: { params: Promise<{ id: string }> }) {
-  const session: any = await getServerSession(authOptions as any);
+  const session: any = await auth();
   if (!session) redirect("/");
 
   const { id } = await params;

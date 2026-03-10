@@ -8,8 +8,8 @@
   --color-accent-light: #4D7CFF;
   --color-muted: #F1F5F9;
 
-  --font-heading: var(--font-calistoga), serif;
-  --font-sans: var(--font-inter), sans-serif;
+  --font-heading: var(--font-poppins), sans-serif;
+  --font-sans: var(--font-poppins), sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
 
   --animate-pulse-dot: pulseDot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
