@@ -1,22 +1,27 @@
-"use client";
-import { useState, useEffect } from "react";
-import Editor from "@monaco-editor/react";
-import Handlebars from "handlebars";
-import { ArrowLeft, Save, Play, Code2, FileCode2, Braces, Terminal } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import ApiIntegrationModal from "./ApiIntegrationModal";
+'use client';
+import { useState, useEffect } from 'react';
+import Editor from '@monaco-editor/react';
+import Handlebars from 'handlebars';
+import { ArrowLeft, Code2, FileCode2, Braces, Terminal } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import ApiIntegrationModal from './ApiIntegrationModal';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 export default function TemplateEditor({ initialTemplate }: { initialTemplate: any }) {
-  const [html, setHtml] = useState(initialTemplate.htmlContent || "");
-  const [css, setCss] = useState(initialTemplate.cssContent || "");
-  const [jsonStr, setJsonStr] = useState(initialTemplate.sampleJson || "");
-  const [previewHtml, setPreviewHtml] = useState("");
-  const [activeTab, setActiveTab] = useState<"html" | "css" | "json">("html");
+  const [html, setHtml] = useState(initialTemplate.htmlContent || '');
+  const [css, setCss] = useState(initialTemplate.cssContent || '');
+  const [jsonStr, setJsonStr] = useState(initialTemplate.sampleJson || '');
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [activeTab, setActiveTab] = useState<'html' | 'css' | 'json'>('html');
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [showApiModal, setShowApiModal] = useState(false);
-  const router = useRouter();
+  
+  const { scrollY } = useScroll();
+  const editorY = useTransform(scrollY, [0, 500], [0, 50]);
 
   useEffect(() => {
     try {
@@ -43,8 +48,8 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
     setSaving(true);
     try {
       await fetch(`/api/templates/${initialTemplate._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           htmlContent: html,
           cssContent: css,
@@ -52,7 +57,7 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
         }),
       });
     } catch (e) {
-      alert("Failed to save template");
+      alert('Failed to save template');
     } finally {
       setSaving(false);
     }
@@ -61,9 +66,9 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
   const generatePdf = async () => {
     setGenerating(true);
     try {
-      const res = await fetch("/api/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           templateId: initialTemplate._id,
           data: JSON.parse(jsonStr),
@@ -73,122 +78,127 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
+        window.open(url, '_blank');
       } else {
-        alert("Failed to generate PDF");
+        alert('Failed to generate PDF');
       }
     } catch (e) {
-      alert("Error generating PDF");
+      alert('Error generating PDF');
     } finally {
       setGenerating(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-      {/* Header */}
-      <div className="h-14 border-b flex items-center justify-between px-4 bg-gray-50 flex-shrink-0">
+    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+      {/* Navbar Toolbar */}
+      <nav className="h-20 border-b border-muted flex items-center justify-between px-6 bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="text-gray-500 hover:text-gray-900">
+          <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors mr-2">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <span className="font-semibold text-gray-900 truncate max-w-xs">{initialTemplate.name}</span>
+          <Badge>Editor</Badge>
+          <h2 className="font-heading text-xl truncate max-w-[200px] md:max-w-md">{initialTemplate.name}</h2>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowApiModal(true)}
-            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded text-sm font-medium transition border border-indigo-200"
-          >
-            <Terminal className="w-4 h-4" />
+        <div className="flex gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setShowApiModal(true)}>
+            <Terminal className="w-4 h-4 mr-2" />
             API Code
-          </button>
-          <button
-            onClick={generatePdf}
-            disabled={generating}
-            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded text-sm font-medium transition disabled:opacity-50"
-          >
-            <Play className="w-4 h-4" />
-            {generating ? "Generating..." : "Test PDF"}
-          </button>
-          <button
-            onClick={saveTemplate}
-            disabled={saving}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium transition disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            {saving ? "Saving..." : "Save"}
-          </button>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={saveTemplate} isLoading={saving}>
+            Save Draft
+          </Button>
+          <Button variant="primary" size="sm" onClick={generatePdf} isLoading={generating} withArrow>
+            Generate Test PDF
+          </Button>
         </div>
-      </div>
+      </nav>
 
-      <div className="flex flex-grow overflow-hidden">
-        {/* Editor Pane */}
-        <div className="w-1/2 flex flex-col border-r bg-gray-50">
-          <div className="flex border-b">
-            <button
-              className={`flex-1 py-2 text-sm font-medium flex justify-center items-center gap-2 ${activeTab === 'html' ? 'bg-white border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
+      {/* Split Layout */}
+      <div className="flex flex-col lg:flex-row flex-1 p-6 gap-6 relative z-10">
+        
+        {/* Left: Monaco Editor Panel */}
+        <motion.div style={{ y: editorY }} className="w-full lg:w-1/2 flex flex-col gap-4 h-[calc(100vh-8rem)]">
+          <div className="flex gap-2 border-b border-muted pb-2">
+            <button 
+              className={`px-4 py-2 font-mono text-sm transition-colors ${activeTab === 'html' ? 'border-b-2 border-accent text-accent font-semibold' : 'text-foreground/50 hover:text-foreground'}`}
               onClick={() => setActiveTab('html')}
             >
-              <Code2 className="w-4 h-4" /> HTML
+               <Code2 className="w-4 h-4 inline mr-2" /> HTML
             </button>
-            <button
-              className={`flex-1 py-2 text-sm font-medium flex justify-center items-center gap-2 ${activeTab === 'css' ? 'bg-white border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
+            <button 
+              className={`px-4 py-2 font-mono text-sm transition-colors ${activeTab === 'css' ? 'border-b-2 border-accent text-accent font-semibold' : 'text-foreground/50 hover:text-foreground'}`}
               onClick={() => setActiveTab('css')}
             >
-              <FileCode2 className="w-4 h-4" /> CSS
+               <FileCode2 className="w-4 h-4 inline mr-2" /> CSS
             </button>
-            <button
-              className={`flex-1 py-2 text-sm font-medium flex justify-center items-center gap-2 ${activeTab === 'json' ? 'bg-white border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
+            <button 
+              className={`px-4 py-2 font-mono text-sm transition-colors ${activeTab === 'json' ? 'border-b-2 border-accent text-accent font-semibold' : 'text-foreground/50 hover:text-foreground'}`}
               onClick={() => setActiveTab('json')}
             >
-              <Braces className="w-4 h-4" /> Test JSON
+               <Braces className="w-4 h-4 inline mr-2" /> JSON Data
             </button>
           </div>
           
-          <div className="flex-grow relative">
+          <div className="flex-1 rounded-xl overflow-hidden border border-muted shadow-inner bg-[#1e1e1e]">
             {activeTab === 'html' && (
               <Editor
-                className="absolute inset-0"
+                height="100%"
                 language="html"
-                theme="vs-light"
+                theme="vs-dark"
                 value={html}
-                onChange={(v) => setHtml(v || "")}
-                options={{ minimap: { enabled: false }, fontSize: 13 }}
+                onChange={(v) => setHtml(v || '')}
+                options={{ minimap: { enabled: false }, fontLigatures: true, fontFamily: 'var(--font-jetbrains-mono)' }}
               />
             )}
             {activeTab === 'css' && (
               <Editor
-                className="absolute inset-0"
+                height="100%"
                 language="css"
-                theme="vs-light"
+                theme="vs-dark"
                 value={css}
-                onChange={(v) => setCss(v || "")}
-                options={{ minimap: { enabled: false }, fontSize: 13 }}
+                onChange={(v) => setCss(v || '')}
+                options={{ minimap: { enabled: false }, fontLigatures: true, fontFamily: 'var(--font-jetbrains-mono)' }}
               />
             )}
             {activeTab === 'json' && (
-              <Editor
-                className="absolute inset-0"
-                language="json"
-                theme="vs-light" // vs-dark for dark mode
-                value={jsonStr}
-                onChange={(v) => setJsonStr(v || "")}
-                options={{ minimap: { enabled: false }, fontSize: 13, formatOnPaste: true }}
-              />
+               <Editor
+               height="100%"
+               language="json"
+               theme="vs-dark"
+               value={jsonStr}
+               defaultLanguage="json"
+               onChange={(v) => setJsonStr(v || '')}
+               options={{ minimap: { enabled: false }, fontLigatures: true, fontFamily: 'var(--font-jetbrains-mono)' }}
+             />
             )}
+          </div>
+        </motion.div>
+
+        {/* Right: Live Preview Panel */}
+        <div className="w-full lg:w-1/2 flex flex-col gap-4 h-[calc(100vh-8rem)]">
+          <div className="flex justify-between items-center pb-2">
+             <Badge active>Live Preview</Badge>
+          </div>
+          {/* Subtle radial glow corner accents applied behind the preview */}
+          <div className="relative flex-1 rounded-xl bg-muted/30 border border-muted shadow-lg overflow-y-auto overflow-x-hidden flex flex-col items-center pattern-dots p-8">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-accent opacity-5 blur-[80px] rounded-full pointer-events-none" />
+            
+            {/* 
+              Aspect ratio and max-width ensure an A4-like appearance up to a certain size, 
+              but allowing flex-shrink/grow prevents it from disappearing on smaller screens. 
+              The pointer-events-none was removed so text can be selected.
+            */}
+            <div className="w-full max-w-[800px] min-h-[842px] bg-white shadow-xl transition-all duration-300 relative z-10 shrink-0">
+               <iframe 
+                srcDoc={previewHtml} 
+                className="absolute inset-0 w-full h-full border-none" 
+                title="PDF Preview"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Live Preview Pane */}
-        <div className="w-1/2 bg-gray-200 p-6 flex flex-col max-h-full overflow-y-auto">
-          <div className="bg-white mx-auto shadow-xl flex-shrink-0" style={{ width: "210mm", height: "297mm", maxWidth: "100%" }}>
-            <iframe 
-              srcDoc={previewHtml} 
-              className="w-full h-full border-none pointer-events-none" 
-              title="PDF Preview"
-            />
-          </div>
-        </div>
       </div>
 
       <ApiIntegrationModal 

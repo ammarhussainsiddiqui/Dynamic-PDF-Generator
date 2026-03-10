@@ -1,78 +1,150 @@
-import { connectToDatabase } from "@/lib/db";
-import Template from "@/lib/models/Template";
-import { getServerSession } from "next-auth/next";
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { FileEdit, Plus, Trash2 } from "lucide-react";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+'use client';
+import { motion } from 'framer-motion';
+import { fadeInUp, staggerContainer } from '@/lib/animations';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { useRouter } from 'next/navigation';
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 
-export default async function Dashboard() {
-  const session: any = await getServerSession(authOptions as any);
-  if (!session) redirect("/");
+interface Template {
+  _id: string;
+  name: string;
+  createdAt: string;
+}
 
-  await connectToDatabase();
-  const templates = await Template.find({ userId: (session.user as any).id }).sort({ updatedAt: -1 });
+export default function Dashboard() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/");
+    } else if (status === "authenticated") {
+      fetchTemplates();
+    }
+  }, [status, router]);
+
+  const fetchTemplates = async () => {
+    try {
+      const res = await fetch("/api/templates");
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(data);
+      }
+    } catch (error) {
+      console.error("Error fetching templates", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (status === "loading" || loading) {
+    return <div className="min-h-screen flex items-center justify-center p-8 text-center text-foreground/50 font-mono">Loading Workspace...</div>;
+  }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Templates</h1>
-          <p className="text-gray-500 mt-1">Manage your PDF templates</p>
-        </div>
-        <Link 
-          href="/templates/new" 
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
+    <div className="min-h-screen pb-12">
+      <div className="py-28 max-w-6xl mx-auto px-6">
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={staggerContainer}
+          className="space-y-12"
         >
-          <Plus className="w-5 h-5" />
-          <span>New Template</span>
-        </Link>
+          <motion.div
+            variants={fadeInUp}
+            className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6"
+          >
+            <div className="space-y-4">
+              <Badge active>Workspace</Badge>
+              <h1 className="font-heading text-5xl tracking-tight text-foreground">
+                Your <span className="text-gradient">Templates</span>
+              </h1>
+            </div>
+            <Button
+              withArrow
+              variant="primary"
+              size="lg"
+              onClick={() => router.push('/templates/new')}
+            >
+              Create Template
+            </Button>
+          </motion.div>
+
+          <motion.div variants={fadeInUp} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {['Total Generated', 'Active Templates', 'API Calls', 'Plan Quota'].map(
+              (stat, i) => (
+                <div key={i} className="p-6 rounded-xl border border-muted bg-card">
+                  <p className="font-mono text-xs text-foreground/50 mb-2 uppercase">
+                    {stat}
+                  </p>
+                  <p className="font-heading text-3xl font-semibold">
+                    {i === 0 ? '1,248' : i === 1 ? templates.length.toString() : i === 2 ? '8.4k' : 'Free'}
+                  </p>
+                </div>
+              )
+            )}
+          </motion.div>
+
+          {templates.length === 0 ? (
+            <motion.div variants={fadeInUp} className="text-center py-20 bg-card rounded-xl border border-muted shadow-sm mt-8">
+               <h3 className="font-heading text-2xl text-foreground mb-4">No templates yet</h3>
+               <p className="text-foreground/70 font-sans mb-8">Create your first HTML-to-PDF template to get started.</p>
+               <Button onClick={() => router.push('/templates/new')} variant="secondary">
+                 Create Project
+               </Button>
+            </motion.div>
+          ) : (
+            <motion.div
+              variants={staggerContainer}
+              className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8"
+            >
+              {templates.map((template, index) => (
+                <motion.div key={template._id} variants={fadeInUp} className={index === 0 ? "md:col-span-2" : ""}>
+                  <Card featured={index === 0} className="h-full flex flex-col justify-between">
+                    <div>
+                      <p className="font-mono text-xs text-accent mb-4 truncate">ID: {template._id}</p>
+                      <h3 className="font-heading text-2xl mb-2 truncate" title={template.name}>{template.name}</h3>
+                      <p className="text-foreground/70 font-sans text-sm">
+                        Created: {new Date(template.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="mt-8">
+                      <Button variant="secondary" size="sm" onClick={() => router.push(`/templates/${template._id}/edit`)}>
+                        Edit Template
+                      </Button>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+        </motion.div>
       </div>
 
-      {templates.length === 0 ? (
-        <div className="text-center py-16 bg-white border border-dashed rounded-lg">
-          <FileEdit className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">No templates yet</h3>
-          <p className="text-gray-500 mt-1 mb-6">Create your first template to start generating PDFs.</p>
-          <Link 
-            href="/templates/new" 
-            className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-4 py-2 rounded-lg font-medium transition inline-flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Create Template
-          </Link>
+      <section className="inverted-section py-32 mt-12 relative overflow-hidden pattern-dots-inverted">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-accent/20 rounded-full animate-slow-spin z-0" />
+        <div className="max-w-4xl mx-auto px-6 relative z-10 text-center space-y-8">
+          <div className="inline-block"><Badge>API Integration</Badge></div>
+          <h2 className="font-heading text-5xl md:text-7xl">
+            Ready to <span className="text-gradient">Generate?</span>
+          </h2>
+          <p className="font-mono text-background/70 p-6 bg-black/50 rounded-xl border border-white/10 text-left max-w-xl mx-auto overflow-x-auto">
+            <code className="block text-accent">POST /api/generate</code>
+            <code className="block mt-2">{'{'}</code>
+            <code className="block ml-4">"template_id": "{templates[0]?._id || "tpl_9f8x2m"}",</code>
+            <code className="block ml-4">
+              "data": {'{'} "name": "John Doe" {'}'}
+            </code>
+            <code className="block">{'}'}</code>
+          </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map(t => (
-            <div key={t._id.toString()} className="bg-white border rounded-xl shadow-sm hover:shadow-md transition overflow-hidden flex flex-col">
-              <div className="p-5 flex-grow">
-                <h2 className="font-semibold text-xl text-gray-900 mb-2 truncate">{t.name}</h2>
-                <div className="text-xs text-gray-500 font-mono bg-gray-50 p-2 rounded truncate">
-                  ID: {t._id.toString()}
-                </div>
-              </div>
-              <div className="bg-gray-50 px-5 py-3 border-t flex justify-between items-center">
-                <span className="text-xs text-gray-500">
-                  Updated {new Date(t.updatedAt).toLocaleDateString()}
-                </span>
-                <div className="flex gap-2">
-                  <button className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Delete">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <Link 
-                    href={`/templates/${t._id}/edit`} 
-                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                    title="Edit"
-                  >
-                    <FileEdit className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      </section>
     </div>
   );
 }
