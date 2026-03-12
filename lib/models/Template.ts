@@ -12,6 +12,7 @@ export interface ITemplate extends Document {
     width: number;
     height: number;
   };
+  googleFonts?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +28,7 @@ const TemplateSchema = new Schema<ITemplate>({
     width: Number,
     height: Number,
   },
+  googleFonts: { type: [String], default: ['Poppins', 'Inter', 'JetBrains Mono'] },
 }, { timestamps: true, minimize: false });
 
 // Force schema recreation in development

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import Handlebars from 'handlebars';
-import { ArrowLeft, Code2, FileCode2, Braces, Terminal, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Code2, FileCode2, Braces, Terminal, ChevronDown, Type } from 'lucide-react';
 import Link from 'next/link';
 import ApiIntegrationModal from './ApiIntegrationModal';
 import { Badge } from '@/components/ui/Badge';
@@ -128,6 +128,60 @@ function SizeSelector({
   );
 }
 
+// ─── Font Selector Dropdown ──────────────────────────────────────────────────
+
+function FontsSelector({
+  googleFonts,
+  onFontsChange,
+}: {
+  googleFonts: string[];
+  onFontsChange: (fonts: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(googleFonts.join(', '));
+
+  const handleBlur = () => {
+    const fonts = inputValue.split(',').map(f => f.trim()).filter(f => f !== '');
+    onFontsChange(fonts);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-muted bg-card text-sm font-mono hover:bg-muted/50 transition-colors"
+      >
+        <Type className="w-3.5 h-3.5 text-foreground/40" />
+        <span className="text-foreground/70 text-xs uppercase tracking-widest">Fonts</span>
+        <span className="font-semibold">{googleFonts.length} Loaded</span>
+        <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-card border border-muted rounded-xl shadow-2xl overflow-hidden p-4">
+            <label className="flex flex-col gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-foreground/40 font-bold">Google Fonts</span>
+              <textarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onBlur={handleBlur}
+                rows={3}
+                placeholder="Poppins, Inter, Montserrat"
+                className="w-full px-3 py-2 rounded-lg border border-muted bg-background text-sm font-mono focus:ring-1 focus:ring-accent outline-none"
+              />
+              <p className="text-[10px] text-foreground/40 leading-relaxed">
+                Enter names from Google Fonts. Example: <span className="text-accent italic">Poppins, Playfair Display</span>. Separated by commas.
+              </p>
+            </label>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 
 export default function TemplateEditor({ initialTemplate }: { initialTemplate: any }) {
@@ -135,6 +189,7 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
   const [css, setCss] = useState(initialTemplate.cssContent || '');
   const [jsonStr, setJsonStr] = useState(initialTemplate.sampleJson || '');
   const [templateName, setTemplateName] = useState(initialTemplate.name || '');
+  const [googleFonts, setGoogleFonts] = useState<string[]>(initialTemplate.googleFonts || ['Poppins', 'Inter', 'JetBrains Mono']);
   const [previewHtml, setPreviewHtml] = useState('');
   const [activeTab, setActiveTab] = useState<'html' | 'css' | 'json'>('html');
   const [saving, setSaving] = useState(false);
@@ -170,10 +225,16 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
       const data = JSON.parse(jsonStr);
       const template = Handlebars.compile(html);
       const result = template(data);
+      
+      const fontsLink = googleFonts.length > 0 
+        ? `<link href="https://fonts.googleapis.com/css2?${googleFonts.map(f => `family=${f.replace(/ /g, '+')}:wght@400;500;600;700`).join('&')}&display=swap" rel="stylesheet">` 
+        : '';
+
       const injected = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8" />
+${fontsLink}
 <script src="https://cdn.tailwindcss.com"><\/script>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
@@ -181,6 +242,7 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
   html, body {
     margin: 0;
     padding: 0;
+    font-family: '${googleFonts[0]}', sans-serif;
   }
 
   ${css}
@@ -192,7 +254,7 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
     } catch {
       // Ignore parse/compile errors while typing
     }
-  }, [html, css, jsonStr]);
+  }, [html, css, jsonStr, googleFonts]);
 
   const saveTemplate = async () => {
     setSaving(true);
@@ -215,7 +277,8 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
           cssContent: css,
           sampleJson: jsonStr,
           pageSize,
-          sizeKey
+          sizeKey,
+          googleFonts
         }),
       });
 
@@ -407,7 +470,11 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
                 onChange={setSizeKey}
                 customW={customW}
                 customH={customH}
-                onCustomChange={handleCustomChange}
+                onCustomChange={(w, h) => { setCustomW(w); setCustomH(h); }}
+              />
+              <FontsSelector
+                googleFonts={googleFonts}
+                onFontsChange={setGoogleFonts}
               />
             </div>
           </div>

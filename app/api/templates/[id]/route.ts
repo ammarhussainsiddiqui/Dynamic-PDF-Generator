@@ -51,7 +51,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       cssContent,
       sampleJson,
       sizeKey,
-      pageSize
+      pageSize,
+      googleFonts
     } = body;
 
     await connectToDatabase();
@@ -61,7 +62,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       htmlContent,
       cssContent,
       sampleJson,
-      sizeKey
+      sizeKey,
+      googleFonts
     };
 
     // Only store pageSize if provided

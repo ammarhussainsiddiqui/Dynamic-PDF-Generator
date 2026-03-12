@@ -29,6 +29,7 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
       width: template.pageSize.width,
       height: template.pageSize.height,
     } : undefined,
+    googleFonts: template.googleFonts || [],
   };
 
   return <TemplateEditor initialTemplate={plainTemplate} />;
