@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import '@/models/User'; // Ensure User is registered to prevent MissingSchemaError on ref
+import '@/lib/models/User'; // Ensure User is registered to prevent MissingSchemaError on ref
 
 export interface ITemplate extends Document {
   userId: mongoose.Types.ObjectId;
@@ -7,6 +7,11 @@ export interface ITemplate extends Document {
   htmlContent: string;
   cssContent: string;
   sampleJson: string;
+  sizeKey?: string;
+  pageSize?: {
+    width: number;
+    height: number;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,6 +22,16 @@ const TemplateSchema = new Schema<ITemplate>({
   htmlContent: { type: String, default: '<h1>Hello {{name}}</h1>' },
   cssContent: { type: String, default: 'h1 { color: blue; }' },
   sampleJson: { type: String, default: '{\n  "name": "World"\n}' },
-}, { timestamps: true });
+  sizeKey: { type: String, default: 'a4' },
+  pageSize: {
+    width: Number,
+    height: Number,
+  },
+}, { timestamps: true, minimize: false });
 
-export default mongoose.models.Template || mongoose.model<ITemplate>('Template', TemplateSchema);
+// Force schema recreation in development
+if (mongoose.models.Template) {
+  delete mongoose.models.Template;
+}
+
+export default mongoose.model<ITemplate>('Template', TemplateSchema);

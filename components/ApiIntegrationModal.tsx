@@ -14,7 +14,7 @@ export default function ApiIntegrationModal({
 }) {
   const [activeTab, setActiveTab] = useState<'curl' | 'js' | 'python'>('curl');
   const [copied, setCopied] = useState(false);
-  const [baseUrl, setBaseUrl] = useState('http://localhost:3000');
+  const [baseUrl, setBaseUrl] = useState(process.env.NEXTAUTH_URL || "http://localhost:3000");
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

@@ -6,6 +6,8 @@ import { NextResponse } from 'next/server';
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session: any = await auth();
+
+
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -13,13 +15,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
 
     await connectToDatabase();
-    const template = await Template.findOne({ _id: id, userId: (session.user as any).id });
+
+    const template = await Template.findOne({
+      _id: id,
+      userId: (session.user as any).id
+    });
 
     if (!template) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 });
     }
 
     return NextResponse.json(template, { status: 200 });
+
+
   } catch (error) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
@@ -28,6 +36,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session: any = await auth();
+
+
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -35,10 +45,39 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const body = await req.json();
 
+    const {
+      name,
+      htmlContent,
+      cssContent,
+      sampleJson,
+      sizeKey,
+      pageSize
+    } = body;
+
     await connectToDatabase();
+
+    const updateData: any = {
+      name,
+      htmlContent,
+      cssContent,
+      sampleJson,
+      sizeKey
+    };
+
+    // Only store pageSize if provided
+    if (pageSize && pageSize.width && pageSize.height) {
+      updateData.pageSize = {
+        width: pageSize.width,
+        height: pageSize.height
+      };
+    }
+
     const template = await Template.findOneAndUpdate(
-      { _id: id, userId: (session.user as any).id },
-      { $set: body },
+      {
+        _id: id,
+        userId: (session.user as any).id
+      },
+      { $set: updateData },
       { new: true }
     );
 
@@ -47,7 +86,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     return NextResponse.json(template, { status: 200 });
+
+
   } catch (error) {
+    console.error('PUT Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -55,6 +97,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session: any = await auth();
+
+
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -62,13 +106,19 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const { id } = await params;
 
     await connectToDatabase();
-    const template = await Template.findOneAndDelete({ _id: id, userId: (session.user as any).id });
+
+    const template = await Template.findOneAndDelete({
+      _id: id,
+      userId: (session.user as any).id
+    });
 
     if (!template) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
+
+
   } catch (error) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

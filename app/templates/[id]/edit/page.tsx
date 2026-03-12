@@ -24,6 +24,11 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
     htmlContent: template.htmlContent,
     cssContent: template.cssContent,
     sampleJson: template.sampleJson,
+    sizeKey: template.sizeKey,
+    pageSize: template.pageSize ? {
+      width: template.pageSize.width,
+      height: template.pageSize.height,
+    } : undefined,
   };
 
   return <TemplateEditor initialTemplate={plainTemplate} />;
