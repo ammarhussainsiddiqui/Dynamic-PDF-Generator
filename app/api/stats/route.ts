@@ -24,6 +24,6 @@ export async function GET() {
     }, { status: 200 });
   } catch (error) {
     console.error("Stats fetch error:", error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch usage statistics' }, { status: 500 });
   }
 }

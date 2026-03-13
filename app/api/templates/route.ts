@@ -10,7 +10,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name } = await req.json();
+    const { 
+      name, 
+      htmlContent, 
+      cssContent, 
+      sampleJson, 
+      pageSize, 
+      sizeKey, 
+      googleFonts 
+    } = await req.json();
 
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -20,12 +28,18 @@ export async function POST(req: Request) {
     const template = await Template.create({
       userId: (session.user as any).id,
       name,
+      htmlContent: htmlContent || '',
+      cssContent: cssContent || '',
+      sampleJson: sampleJson || '{}',
+      pageSize: pageSize || { width: 794, height: 1123 },
+      sizeKey: sizeKey || 'a4',
+      googleFonts: googleFonts || ['Inter']
     });
 
     return NextResponse.json(template, { status: 201 });
   } catch (error) {
     console.error('Template POST Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create new template' }, { status: 500 });
   }
 }
 
@@ -41,6 +55,7 @@ export async function GET() {
 
     return NextResponse.json(templates, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Template GET Error:', error);
+    return NextResponse.json({ error: 'Failed to fetch templates' }, { status: 500 });
   }
 }

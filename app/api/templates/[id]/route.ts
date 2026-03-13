@@ -29,7 +29,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 
   } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('GET Template Error:', error);
+    return NextResponse.json({ error: 'Failed to fetch template details' }, { status: 500 });
   }
 }
 
@@ -91,8 +92,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 
   } catch (error) {
-    console.error('PUT Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('PUT Template Error:', error);
+    return NextResponse.json({ error: 'Failed to update template' }, { status: 500 });
   }
 }
 
@@ -122,6 +123,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
 
   } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('DELETE Template Error:', error);
+    return NextResponse.json({ error: 'Failed to delete template' }, { status: 500 });
   }
 }

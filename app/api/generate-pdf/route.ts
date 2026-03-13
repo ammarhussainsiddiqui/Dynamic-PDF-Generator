@@ -144,7 +144,7 @@ export async function POST(req: Request) {
       console.log('PDF Gen - Loading Content into Puppeteer...');
       
       await page.setContent(finalHtml, { 
-        waitUntil: ['load', 'domcontentloaded', 'networkidle0'],
+        waitUntil: ['load', 'networkidle2'],
         timeout: 30000 
       });
 
@@ -181,8 +181,16 @@ export async function POST(req: Request) {
       throw pageError;
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('PDF Gen Error:', error);
-    return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 });
+    let errorMessage = 'Failed to generate PDF';
+    
+    if (error.name === 'TimeoutError') {
+      errorMessage = 'Generation timed out. The template may be too complex or assets are slow.';
+    } else if (error.message?.includes('Protocol error')) {
+      errorMessage = 'Browser protocol error. Please try again.';
+    }
+    
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

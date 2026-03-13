@@ -72,7 +72,7 @@ function SizeSelector({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-card border border-muted rounded-xl shadow-2xl overflow-hidden">
+          <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-card border border-muted rounded-xl shadow-2xl overflow-y-auto max-h-[400px]">
             {SIZE_GROUPS.map((group) => (
               <div key={group.groupLabel}>
                 <div className="px-3 py-1.5 text-[10px] uppercase tracking-widest text-foreground/40 font-semibold bg-muted/30 border-b border-muted">
@@ -160,7 +160,7 @@ function FontsSelector({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-card border border-muted rounded-xl shadow-2xl overflow-hidden p-4">
+          <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-card border border-muted rounded-xl shadow-2xl overflow-y-auto max-h-[400px] p-4">
             <label className="flex flex-col gap-2">
               <span className="text-[10px] uppercase tracking-widest text-foreground/40 font-bold">Google Fonts</span>
               <textarea
@@ -197,19 +197,13 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
   const [showApiModal, setShowApiModal] = useState(false);
 
   // Size state
-  // Size state
   const [sizeKey, setSizeKey] = useState(initialTemplate.sizeKey || "a4");
-
   const [customW, setCustomW] = useState(
     initialTemplate.pageSize?.width || PDF_SIZES[initialTemplate.sizeKey || "a4"].width
   );
-
   const [customH, setCustomH] = useState(
     initialTemplate.pageSize?.height || PDF_SIZES[initialTemplate.sizeKey || "a4"].height
   );
-
-  const { scrollY } = useScroll();
-  const editorY = useTransform(scrollY, [0, 500], [0, 50]);
 
   // Resolved dimensions
   const resolvedSize =
@@ -217,58 +211,71 @@ export default function TemplateEditor({ initialTemplate }: { initialTemplate: a
       ? { width: customW, height: customH }
       : { width: PDF_SIZES[sizeKey].width, height: PDF_SIZES[sizeKey].height };
 
-  const isLandscape = resolvedSize.width > resolvedSize.height;
+  // Scaling logic to fit the template in the container
+  const [containerRef, setContainerRef] = useState<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    if (!containerRef) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        const targetW = resolvedSize.width;
+        const targetH = resolvedSize.height;
+
+        // Reduce padding for a tighter fit
+        const padding = 40;
+        const scaleW = (width - padding) / targetW;
+        const scaleH = (height - padding) / targetH;
+
+        // Never upscale, only downscale to fit
+        const newScale = Math.min(1, scaleW, scaleH);
+        setScale(newScale);
+      }
+    });
+    observer.observe(containerRef);
+    return () => observer.disconnect();
+  }, [containerRef, resolvedSize]);
 
   // Live preview compilation
   useEffect(() => {
     try {
-      const data = JSON.parse(jsonStr);
+      const data = JSON.parse(jsonStr || '{}');
       const template = Handlebars.compile(html);
       const result = template(data);
-      
-      const fontsLink = googleFonts.length > 0 
-        ? `<link href="https://fonts.googleapis.com/css2?${googleFonts.map(f => `family=${f.replace(/ /g, '+')}:wght@400;500;600;700`).join('&')}&display=swap" rel="stylesheet">` 
-        : '';
+
+      const fontsLink = googleFonts.map(f => `family=${f.replace(/ /g, '+')}:wght@400;500;600;700`).join('&');
 
       const injected = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8" />
-${fontsLink}
+<link href="https://fonts.googleapis.com/css2?${fontsLink}&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"><\/script>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
-
   html, body {
     margin: 0;
     padding: 0;
+    background: white;
+    min-height: 100%;
     font-family: '${googleFonts[0]}', sans-serif;
   }
-
   ${css}
 </style>
 </head>
 <body>${result}</body>
-</html>`;;
+</html>`;
       setPreviewHtml(injected);
-    } catch {
-      // Ignore parse/compile errors while typing
+    } catch (e) {
+      // Stay on previous valid state
     }
   }, [html, css, jsonStr, googleFonts]);
 
   const saveTemplate = async () => {
     setSaving(true);
-
     try {
-      const pageSize =
-        sizeKey === "custom"
-          ? { width: customW, height: customH }
-          : {
-            width: PDF_SIZES[sizeKey].width,
-            height: PDF_SIZES[sizeKey].height,
-          };
-
-      await fetch(`/api/templates/${initialTemplate._id}`, {
+      const res = await fetch(`/api/templates/${initialTemplate._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -276,22 +283,24 @@ ${fontsLink}
           htmlContent: html,
           cssContent: css,
           sampleJson: jsonStr,
-          pageSize,
+          pageSize: resolvedSize,
           sizeKey,
           googleFonts
         }),
       });
 
-      toast.success("Template saved!");
-
-
-    } catch (error) {
-      toast.error("Failed to save template");
+      if (res.ok) {
+        toast.success("Template synchronization successful");
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Sync failed");
+      }
+    } catch {
+      toast.error("Network synchronization lost");
     } finally {
       setSaving(false);
     }
   };
-
 
   const generatePdf = async () => {
     setGenerating(true);
@@ -301,8 +310,8 @@ ${fontsLink}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           templateId: initialTemplate._id,
-          data: JSON.parse(jsonStr),
-          pageSize: { width: resolvedSize.width, height: resolvedSize.height },
+          data: JSON.parse(jsonStr || '{}'),
+          pageSize: resolvedSize,
         }),
       });
 
@@ -310,161 +319,132 @@ ${fontsLink}
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
-        toast.success('PDF generated!');
+        toast.success('PDF Engine: Generation Success');
       } else {
-        toast.error('Failed to generate PDF');
+        toast.error('PDF Engine: Generation Failed');
       }
     } catch {
-      toast.error('Error generating PDF');
+      toast.error('Network Error: PDF Engine Unreachable');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleCustomChange = (w: number, h: number) => {
-    setCustomW(w);
-    setCustomH(h);
-    // Update PDF_SIZES.custom dimensions reactively
-    PDF_SIZES.custom.width = w;
-    PDF_SIZES.custom.height = h;
-  };
-
-  const tabs: { key: 'html' | 'css' | 'json'; label: string; icon: React.ReactNode }[] = [
-    { key: 'html', label: 'HTML', icon: <Code2 className="w-3.5 h-3.5" /> },
-    { key: 'css', label: 'CSS', icon: <FileCode2 className="w-3.5 h-3.5" /> },
-    { key: 'json', label: 'JSON', icon: <Braces className="w-3.5 h-3.5" /> },
+  const tabs: { key: 'html' | 'css' | 'json'; label: string; icon: any }[] = [
+    { key: 'html', label: 'HTML', icon: Code2 },
+    { key: 'css', label: 'CSS', icon: FileCode2 },
+    { key: 'json', label: 'JSON', icon: Braces },
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+    <div className="h-screen bg-background flex flex-col relative overflow-hidden selection:bg-accent/30 selection:text-white">
+
+      {/* ── Visual Noise ── */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-[100] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
 
       {/* ── Navbar ── */}
-      <nav className="h-16 border-b border-muted flex items-center justify-between px-6 bg-card/60 backdrop-blur-md sticky top-0 z-50 gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
-            <ArrowLeft className="w-4 h-4" />
+      <nav className="h-20 border-b border-muted/50 flex items-center justify-between px-8 bg-card/40 backdrop-blur-2xl sticky top-0 z-50 gap-4">
+        <div className="flex items-center gap-6 min-w-0">
+          <Link href="/dashboard" className="text-foreground/30 hover:text-accent transition-all p-2 hover:bg-accent/5 rounded-xl">
+            <ArrowLeft className="w-5 h-5" />
           </Link>
-          <Badge>Editor</Badge>
-          <input
-            type="text"
-            value={templateName}
-            onChange={(e) => setTemplateName(e.target.value)}
-            className="font-heading text-base bg-transparent border-none focus:ring-0 text-foreground/80 w-auto min-w-[100px] outline-none hover:bg-muted/30 rounded px-1 transition-colors"
-            placeholder="Template Name"
-          />
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <Badge active className="font-mono text-[10px] uppercase tracking-widest bg-emerald-500/5 text-emerald-500 border-emerald-500/20 px-2 py-0.5 rounded-full border">Active Session</Badge>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                className="font-heading font-black text-xl bg-transparent border-none focus:ring-0 text-foreground w-auto min-w-[200px] outline-none"
+                placeholder="Untitled Project"
+              />
+            </div>
+            <p className="text-[10px] font-mono text-foreground/30 uppercase tracking-[0.2em] mt-1 pl-1">Document Architect Mode</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => setShowApiModal(true)}>
-            <Terminal className="w-4 h-4 mr-1.5" />
-            API
+        <div className="flex items-center gap-4 shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => setShowApiModal(true)} className="font-mono text-[10px] uppercase tracking-widest text-foreground/40 hover:text-foreground">
+            <Terminal className="w-4 h-4 mr-2" />
+            Integrate
           </Button>
-          <Button variant="secondary" size="sm" onClick={saveTemplate} isLoading={saving}>
-            Save
+          <div className="h-8 w-[1px] bg-muted/50 mx-2" />
+          <Button variant="secondary" size="sm" onClick={saveTemplate} isLoading={saving} className="font-mono text-[10px] tracking-widest uppercase px-6">
+            Sync Changes
           </Button>
-          <Button variant="primary" size="sm" onClick={generatePdf} isLoading={generating} withArrow>
-            Generate PDF
+          <Button variant="primary" size="sm" onClick={generatePdf} isLoading={generating} withArrow className="font-mono text-[10px] tracking-widest uppercase px-6">
+            Build PDF
           </Button>
         </div>
       </nav>
 
-      {/* ── Split Layout ── */}
-      <div className="flex flex-col lg:flex-row flex-1 p-4 gap-4 relative z-10">
-
+      <div className="flex flex-1 overflow-hidden">
         {/* Left: Code Editor */}
-        <motion.div
-          className="w-full lg:w-1/2 flex flex-col gap-3"
-          style={{ y: editorY, height: 'calc(100vh - 5rem)' }}
-        >
-          {/* Tab bar */}
-          <div className="flex gap-1 bg-muted/30 p-1 rounded-lg border border-muted">
-            {tabs.map(({ key, label, icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-mono text-xs font-medium transition-all flex-1 justify-center ${activeTab === key
-                    ? 'bg-card shadow text-accent border border-muted'
-                    : 'text-foreground/50 hover:text-foreground'
-                  }`}
-              >
-                {icon}
-                {label}
-              </button>
-            ))}
-          </div>
+        <div className="w-[45%] flex flex-col border-r border-muted/50 bg-card/20 overflow-hidden">
+          <div className="p-4 space-y-4 flex-1 flex flex-col">
+            <div className="flex gap-2 p-1 bg-muted/20 rounded-2xl border border-muted/50">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-2 flex-1 justify-center py-2.5 rounded-xl transition-all font-mono text-[10px] font-bold uppercase tracking-widest ${activeTab === tab.key
+                      ? 'bg-card text-accent shadow-xl shadow-accent/5 border border-accent/20'
+                      : 'text-foreground/30 hover:text-foreground hover:bg-white/5'
+                    }`}
+                >
+                  <tab.icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-          {/* Monaco */}
-          <div className="flex-1 rounded-xl overflow-hidden border border-muted shadow-inner bg-[#0d1117]">
-            {activeTab === 'html' && (
+            <div className="flex-1 rounded-2xl overflow-hidden border border-muted/50 bg-[#0d1117] relative group shadow-2xl">
+              <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Badge active className="bg-white/5 backdrop-blur-md border border-white/10 text-white/40 text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full">
+                  {activeTab === 'html' ? 'Handlebars' : activeTab === 'css' ? 'Tailwind Ready' : 'Payload'}
+                </Badge>
+              </div>
               <Editor
                 height="100%"
-                language="html"
+                language={activeTab}
                 theme="vs-dark"
-                value={html}
-                onChange={(v) => setHtml(v || '')}
+                value={activeTab === 'html' ? html : activeTab === 'css' ? css : jsonStr}
+                onChange={(v) => activeTab === 'html' ? setHtml(v || '') : activeTab === 'css' ? setCss(v || '') : setJsonStr(v || '')}
                 options={{
                   minimap: { enabled: false },
                   fontLigatures: true,
-                  fontFamily: 'var(--font-jetbrains-mono, "JetBrains Mono", monospace)',
+                  fontFamily: 'var(--font-jetbrains-mono)',
                   fontSize: 13,
                   lineHeight: 22,
-                  padding: { top: 12 },
+                  padding: { top: 20, bottom: 20 },
                   scrollBeyondLastLine: false,
+                  cursorSmoothCaretAnimation: 'on',
+                  smoothScrolling: true,
+                  contextmenu: false,
+                  folding: true,
+                  bracketPairColorization: { enabled: true }
                 }}
               />
-            )}
-            {activeTab === 'css' && (
-              <Editor
-                height="100%"
-                language="css"
-                theme="vs-dark"
-                value={css}
-                onChange={(v) => setCss(v || '')}
-                options={{
-                  minimap: { enabled: false },
-                  fontLigatures: true,
-                  fontFamily: 'var(--font-jetbrains-mono, "JetBrains Mono", monospace)',
-                  fontSize: 13,
-                  lineHeight: 22,
-                  padding: { top: 12 },
-                  scrollBeyondLastLine: false,
-                }}
-              />
-            )}
-            {activeTab === 'json' && (
-              <Editor
-                height="100%"
-                language="json"
-                theme="vs-dark"
-                value={jsonStr}
-                onChange={(v) => setJsonStr(v || '')}
-                options={{
-                  minimap: { enabled: false },
-                  fontLigatures: true,
-                  fontFamily: 'var(--font-jetbrains-mono, "JetBrains Mono", monospace)',
-                  fontSize: 13,
-                  lineHeight: 22,
-                  padding: { top: 12 },
-                  scrollBeyondLastLine: false,
-                }}
-              />
-            )}
+            </div>
           </div>
-        </motion.div>
+        </div>
 
-        {/* Right: Preview */}
-        <div
-          className="w-full lg:w-1/2 flex flex-col gap-3"
-          style={{ height: 'calc(100vh - 5rem)' }}
-        >
-          {/* Preview toolbar */}
-          <div className="flex items-center justify-between gap-3">
-            <Badge active>Live Preview</Badge>
+        {/* Right: Live Preview */}
+        <div className="flex-1 flex flex-col bg-muted/5 relative">
+          {/* Preview Toolbar - High Z-index for dropdowns */}
+          <div className="h-14 border-b border-muted/50 px-6 flex items-center justify-between bg-card/20 backdrop-blur-xl relative z-30">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-mono font-bold text-foreground/40 uppercase tracking-[0.2em]">Real-time Fiber Preview</span>
+              </div>
+            </div>
+
             <div className="flex items-center gap-3">
-              {/* Dimensions readout */}
-              <span className="text-xs font-mono text-foreground/40">
-                {resolvedSize.width} × {resolvedSize.height}px
+              <span className="text-[10px] font-mono text-foreground/30 uppercase tracking-widest hidden sm:block">
+                Canvas: {resolvedSize.width}x{resolvedSize.height}
               </span>
+              <div className="h-4 w-[1px] bg-muted/50 mx-2" />
               <SizeSelector
                 sizeKey={sizeKey}
                 onChange={setSizeKey}
@@ -479,58 +459,47 @@ ${fontsLink}
             </div>
           </div>
 
-          {/* Preview canvas */}
-          <div className="flex-1 rounded-xl bg-muted/20 border border-muted overflow-auto relative">
-            {/* Subtle dot pattern */}
+          {/* Adobe-style Canvas Container */}
+          <div
+            ref={setContainerRef}
+            className="flex-1 overflow-auto bg-[#1a1a1a] relative group/canvas"
+            style={{
+              backgroundImage: `
+                radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0)
+              `,
+              backgroundSize: '24px 24px'
+            }}
+          >
             <div
-              className="absolute inset-0 opacity-30 pointer-events-none"
-              style={{
-                backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
-                backgroundSize: '20px 20px',
-                color: 'var(--color-muted-foreground, #888)',
-              }}
-            />
-
-            {/* Centered scroll area */}
-            <div className="min-h-full flex items-start justify-center relative z-10">
-              {/* 
-                The page wrapper: exact pixel size, no forced bg/padding.
-                Shadow gives the "paper" feel without coloring the document itself.
-              */}
+              className="min-h-full flex items-center justify-center p-8"
+              style={{ minWidth: 'fit-content' }}
+            >
               <div
-                className="relative shrink-0 shadow-[0_4px_40px_rgba(0,0,0,0.25)]"
+                className="bg-white shadow-[0_32px_128px_-32px_rgba(0,0,0,0.8)] transition-all duration-300 relative"
                 style={{
                   width: resolvedSize.width,
                   height: resolvedSize.height,
-                  // Scale down if wider than available (only scales, never upscales)
-                  maxWidth: '100%',
-                  transformOrigin: 'top center',
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'center center'
                 }}
               >
                 <iframe
-                  key={`${sizeKey}-${resolvedSize.width}-${resolvedSize.height}`}
                   srcDoc={previewHtml}
-                  title="PDF Preview"
-                  style={{
-                    width: resolvedSize.width,
-                    height: resolvedSize.height,
-                    border: 'none',
-                    display: 'block',
-                    // Scale iframe to fit container width without cutting off
-                    transformOrigin: 'top left',
-                  }}
-                  className="absolute inset-0"
+                  className="w-full h-full border-none pointer-events-none"
+                  title="Render Engine"
                 />
+
+                {/* Overlay for scaling hint */}
+                {scale < 1 && (
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover/canvas:opacity-100 transition-opacity">
+                    <Badge active className="bg-white/50 backdrop-blur-md border border-white/10 text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full">
+                      View Scaled at {Math.round(scale * 100)}%
+                    </Badge>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Orientation hint for wide formats */}
-          {isLandscape && (
-            <p className="text-xs text-foreground/40 text-center font-mono">
-              Landscape format — {resolvedSize.width} × {resolvedSize.height}px
-            </p>
-          )}
         </div>
       </div>
 

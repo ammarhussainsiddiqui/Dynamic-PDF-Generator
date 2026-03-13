@@ -7,7 +7,23 @@ import { Card } from '@/components/ui/Card';
 import { useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Sidebar } from "@/components/dashboard/Sidebar";
+import { 
+  Trash2, 
+  ExternalLink, 
+  Copy, 
+  Check, 
+  Code2, 
+  Zap, 
+  Layers, 
+  Sparkles, 
+  Plus,
+  Play,
+  Search,
+  Filter,
+  Clock,
+  ArrowUpRight
+} from "lucide-react";
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { toast } from 'sonner';
 
@@ -20,20 +36,22 @@ interface Template {
 export default function Dashboard() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [stats, setStats] = useState({ plan: 'Free', apiCalls: 0, totalGenerated: 0 });
+
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [stats, setStats] = useState({ totalGenerated: 0, apiCalls: 0, plan: 'Free' });
   const [loading, setLoading] = useState(true);
-  
+
   // Modal State
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string, name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/");
+      router.push("/login");
     } else if (status === "authenticated") {
-      Promise.all([fetchTemplates(), fetchStats()]).finally(() => setLoading(false));
+      fetchTemplates();
+      fetchStats();
     }
   }, [status, router]);
 
@@ -43,9 +61,14 @@ export default function Dashboard() {
       if (res.ok) {
         const data = await res.json();
         setTemplates(data);
+      } else {
+        toast.error("Could not load templates. Please refresh.");
       }
     } catch (error) {
       console.error("Error fetching templates", error);
+      toast.error("Connection error. Please check your network.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,137 +94,179 @@ export default function Dashboard() {
       });
 
       if (res.ok) {
-        setTemplates((prev) => prev.filter((t) => t._id !== templateToDelete.id));
+        setTemplates((prev: any[]) => prev.filter((t: any) => t._id !== templateToDelete.id));
         toast.success('Template deleted successfully');
       } else {
-        toast.error('Failed to delete template');
+        const data = await res.json();
+        toast.error(data.error || 'Failed to delete template');
       }
     } catch (error) {
       console.error("Error deleting template:", error);
-      toast.error('An error occurred while deleting the template.');
+      toast.error('Connection lost. Could not delete template.');
     } finally {
       setIsDeleting(false);
       setTemplateToDelete(null);
     }
   };
 
-  if (status === "loading" || loading) {
-    return <div className="min-h-screen flex items-center justify-center p-8 text-center text-foreground/50 font-mono">Loading Workspace...</div>;
+  const filteredTemplates = templates.filter(t =>
+    t.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (status === "loading" || (loading && templates.length === 0)) {
+    return (
+      <div className="flex min-h-screen bg-background text-foreground">
+        <Sidebar />
+        <main className="flex-1 ml-64 p-12">
+           <div className="space-y-12 animate-pulse">
+              <div className="h-12 w-64 bg-muted rounded-xl" />
+              <div className="grid grid-cols-4 gap-6">
+                 {[1,2,3,4].map(i => <div key={i} className="h-32 bg-card border border-muted rounded-2xl" />)}
+              </div>
+              <div className="grid grid-cols-3 gap-8">
+                 {[1,2,3].map(i => <div key={i} className="h-80 bg-card border border-muted rounded-3xl" />)}
+              </div>
+           </div>
+        </main>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen pb-12">
-      <div className="py-28 max-w-6xl mx-auto px-6">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={staggerContainer}
-          className="space-y-12"
-        >
-          <motion.div
-            variants={fadeInUp}
-            className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6"
-          >
-            <div className="space-y-4">
-              <Badge active>Workspace</Badge>
-              <h1 className="font-heading text-5xl tracking-tight text-foreground">
-                Your <span className="text-gradient">Templates</span>
-              </h1>
-            </div>
-            <Button
-              withArrow
-              variant="primary"
-              size="lg"
-              onClick={() => router.push('/templates/new')}
-            >
-              Create Template
-            </Button>
-          </motion.div>
+    <div className="flex min-h-screen bg-background text-foreground selection:bg-accent/30 selection:text-white">
+      <Sidebar />
 
-          <motion.div variants={fadeInUp} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {['Total Generated', 'Active Templates', 'API Calls', 'Plan Quota'].map(
-              (stat, i) => (
-                <div key={i} className="p-6 rounded-xl border border-muted bg-card">
-                  <p className="font-mono text-xs text-foreground/50 mb-2 uppercase">
-                    {stat}
-                  </p>
-                  <p className="font-heading text-3xl font-semibold">
-                    {i === 0 
-                      ? stats.totalGenerated.toLocaleString() 
-                      : i === 1 
-                        ? templates.length.toString() 
-                        : i === 2 
-                          ? stats.apiCalls.toLocaleString() 
-                          : stats.plan}
+      <main className="flex-1 ml-64 p-12 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto space-y-12">
+
+          {/* Workspace Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="space-y-1">
+              <h1 className="text-4xl font-heading font-black tracking-tighter">Your Workspace</h1>
+              <p className="text-foreground/40 text-sm font-mono uppercase tracking-[0.2em]">Manage your PDF automation flow</p>
+            </div>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-80">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30" />
+                <input
+                  type="text"
+                  placeholder="Search templates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-11 bg-card border border-muted rounded-xl pl-11 pr-4 text-sm focus:border-accent/40 focus:ring-1 focus:ring-accent/40 transition-all outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { label: 'Total Logs', value: stats.totalGenerated, icon: Zap, color: 'text-yellow-500' },
+              { label: 'Active Projects', value: templates.length, icon: Layers, color: 'text-accent' },
+              { label: 'API Usage', value: stats.apiCalls, icon: Code2, color: 'text-emerald-500' },
+              { label: 'Current Plan', value: stats.plan, icon: Sparkles, color: 'text-purple-500' },
+            ].map((s, i) => (
+              <div key={i} className="group p-6 rounded-2xl border border-muted bg-card hover:border-accent/30 transition-all shadow-sm hover:shadow-xl hover:shadow-accent/5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`p-2 rounded-lg bg-muted/50 ${s.color}`}>
+                    <s.icon className="w-4 h-4" />
+                  </div>
+                  <p className="font-mono text-[10px] text-foreground/40 uppercase tracking-widest">
+                    {s.label}
                   </p>
                 </div>
-              )
-            )}
+                <p className="font-heading text-3xl font-bold tracking-tight">
+                  {typeof s.value === 'number' ? s.value.toLocaleString() : s.value}
+                </p>
+              </div>
+            ))}
           </motion.div>
 
-          {templates.length === 0 ? (
-            <motion.div variants={fadeInUp} className="text-center py-20 bg-card rounded-xl border border-muted shadow-sm mt-8">
-               <h3 className="font-heading text-2xl text-foreground mb-4">No templates yet</h3>
-               <p className="text-foreground/70 font-sans mb-8">Create your first HTML-to-PDF template to get started.</p>
-               <Button onClick={() => router.push('/templates/new')} variant="secondary">
-                 Create Project
-               </Button>
-            </motion.div>
-          ) : (
-            <motion.div
-              variants={staggerContainer}
-              className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8"
-            >
-              {templates.map((template, index) => (
-                <motion.div key={template._id} variants={fadeInUp} className={index === 0 ? "md:col-span-2" : ""}>
-                  <Card featured={index === 0} className="h-full flex flex-col justify-between">
-                    <div>
-                      <p className="font-mono text-xs text-accent mb-4 truncate">ID: {template._id}</p>
-                      <h3 className="font-heading text-2xl mb-2 truncate" title={template.name}>{template.name}</h3>
-                      <p className="text-foreground/70 font-sans text-sm">
-                        Created: {new Date(template.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="mt-8 flex items-center justify-between">
-                      <Button variant="secondary" size="sm" onClick={() => router.push(`/templates/${template._id}/edit`)}>
-                        Edit Template
-                      </Button>
-                      <button 
-                        onClick={() => setTemplateToDelete({ id: template._id, name: template.name })}
-                        className="p-2 text-foreground/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete Template"
-                        aria-label="Delete Template"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
+          <div className="space-y-8 pt-8">
+             <div className="flex items-center gap-4">
+                <h2 className="text-xl font-heading font-black tracking-tight">Your Templates</h2>
+                <div className="h-[1px] flex-1 bg-gradient-to-r from-muted to-transparent" />
+             </div>
 
-        </motion.div>
-      </div>
+             {filteredTemplates.length === 0 ? (
+              <div className="text-center py-32 bg-card/50 rounded-3xl border border-muted border-dashed">
+                 {searchQuery ? (
+                   <p className="text-foreground/40 font-mono text-sm uppercase">No templates matching "{searchQuery}"</p>
+                 ) : (
+                   <>
+                    <div className="w-20 h-20 bg-muted/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Plus className="w-10 h-10 text-foreground/20" />
+                    </div>
+                    <h3 className="font-heading text-2xl font-bold text-foreground mb-3">No templates found</h3>
+                    <p className="text-foreground/40 font-sans mb-10 max-w-xs mx-auto">Start by creating your first document template in the library.</p>
+                    <Button onClick={() => router.push('/templates/new')} variant="primary" withArrow>
+                      Create First Template
+                    </Button>
+                   </>
+                 )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredTemplates.map((template: any) => (
+                  <motion.div key={template._id} variants={fadeInUp}>
+                    <div className="group bg-card border border-muted hover:border-accent/40 rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-accent/5 flex flex-col h-full ring-offset-background active:scale-[0.99]">
+                      <div className="aspect-[16/10] bg-muted/20 relative overflow-hidden p-6 flex items-center justify-center">
+                         <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent" />
+                         <div className="w-3/4 h-full bg-white shadow-lg rounded-t-lg origin-bottom transform translate-y-4 group-hover:translate-y-2 transition-transform duration-500 flex flex-col p-4">
+                            <div className="w-1/2 h-2 bg-gray-100 rounded mb-2" />
+                            <div className="w-full h-1 bg-gray-50 rounded mb-1" />
+                            <div className="w-full h-1 bg-gray-50 rounded mb-1" />
+                            <div className="w-3/4 h-1 bg-gray-50 rounded mb-4" />
+                            <div className="mt-auto flex justify-between">
+                              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent text-[8px] font-bold">PDF</div>
+                              <div className="w-16 h-4 bg-gray-100 rounded" />
+                            </div>
+                         </div>
+                         <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
+                            <Button size="sm" variant="primary" onClick={() => router.push(`/templates/${template._id}/edit`)}>
+                              Edit Template
+                            </Button>
+                         </div>
+                      </div>
 
-      <section className="inverted-section py-32 mt-12 relative overflow-hidden pattern-dots-inverted">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-accent/20 rounded-full animate-slow-spin z-0" />
-        <div className="max-w-4xl mx-auto px-6 relative z-10 text-center space-y-8">
-          <div className="inline-block"><Badge>API Integration</Badge></div>
-          <h2 className="font-heading text-5xl md:text-7xl">
-            Ready to <span className="text-gradient">Generate?</span>
-          </h2>
-          <p className="font-mono text-background/70 p-6 bg-black/50 rounded-xl border border-white/10 text-left max-w-xl mx-auto overflow-x-auto">
-            <code className="block text-accent">POST /api/generate</code>
-            <code className="block mt-2">{'{'}</code>
-            <code className="block ml-4">"template_id": "{templates[0]?._id || "tpl_9f8x2m"}",</code>
-            <code className="block ml-4">
-              "data": {'{'} "name": "John Doe" {'}'}
-            </code>
-            <code className="block">{'}'}</code>
-          </p>
+                      <div className="p-6 space-y-4 flex-1 flex flex-col">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-heading text-xl font-bold truncate group-hover:text-accent transition-colors" title={template.name}>
+                              {template.name}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1">
+                               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                               <span className="text-[10px] font-mono text-foreground/30 uppercase tracking-[0.15em] shrink-0">Production Ready</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setTemplateToDelete({ id: template._id, name: template.name })}
+                            className="p-2 text-foreground/20 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="pt-4 border-t border-muted/50 grid grid-cols-2 gap-4 mt-auto">
+                          <div>
+                            <p className="text-[9px] uppercase font-bold text-foreground/30 tracking-wider mb-1">Last Sync</p>
+                            <p className="text-xs text-foreground/60">{new Date(template.updatedAt || template.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] uppercase font-bold text-foreground/30 tracking-wider mb-1">Doc Type</p>
+                            <p className="text-xs text-foreground/60">{template.sizeKey?.toUpperCase() || 'A4'} Format</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </section>
+      </main>
 
       <ConfirmModal
         isOpen={!!templateToDelete}
@@ -209,7 +274,7 @@ export default function Dashboard() {
         onConfirm={confirmDelete}
         title="Delete Template?"
         description={`Are you absolutely sure you want to delete "${templateToDelete?.name}"? Any ongoing PDF generations via API will fail. This action cannot be undone.`}
-        confirmText="Delete permanently"
+        confirmText={isDeleting ? "Deleting..." : "Delete permanently"}
         cancelText="Cancel"
         isDestructive={true}
         isLoading={isDeleting}
