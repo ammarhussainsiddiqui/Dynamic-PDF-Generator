@@ -20,12 +20,16 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    const res = await signIn('credentials', { redirect: false, email, password });
+    const res = await signIn('credentials', { 
+      redirect: true, 
+      callbackUrl: '/dashboard',
+      email, 
+      password 
+    }) as any;
+    
     if (res?.error) {
       setError('Invalid email or password');
       setLoading(false);
-    } else {
-      router.push('/dashboard');
     }
   };
 

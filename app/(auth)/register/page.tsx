@@ -6,6 +6,7 @@ import { fadeInUp, staggerContainer } from '@/lib/animations';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 
 type Step = 'EMAIL' | 'OTP' | 'PASSWORD';
 
@@ -88,10 +89,13 @@ export default function RegisterPage() {
       });
 
       if (res.ok) {
-        setSuccessMsg('Account created! Redirecting to login...');
-        setTimeout(() => {
-          router.push('/login?registered=true');
-        }, 3000);
+        setSuccessMsg('Account created! Logging you in...');
+        await signIn('credentials', {
+          redirect: true,
+          callbackUrl: '/dashboard',
+          email,
+          password
+        });
       } else {
         const data = await res.json();
         setError(data.message || 'Registration failed');
