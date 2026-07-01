@@ -58,7 +58,7 @@ public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the project maintainer at **ammar@turnuptechnologies.co**. All
+reported to the project maintainer at **ammarsiddiqui9087@gmail.com**. All
 complaints will be reviewed and investigated promptly and fairly.
 
 All project maintainers are obligated to respect the privacy and security of
