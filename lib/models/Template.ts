@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import '@/lib/models/User'; // Ensure User is registered to prevent MissingSchemaError on ref
+import '@/lib/models/User';
 
 export interface ITemplate extends Document {
   userId: mongoose.Types.ObjectId;
